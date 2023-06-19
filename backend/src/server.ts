@@ -1,55 +1,50 @@
 import express, { Request, Response } from "express";
-import mysql, { Connection } from 'mysql';
+import { PrismaClient } from "@prisma/client";
 import { router } from "./routes";
-import cors from 'cors';
+import cors from "cors";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(router);
-const db: Connection = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "appetito"
-});
 
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to the database:', err);
-        return;
+const prisma = new PrismaClient();
+
+app.post("/signup", async (req: Request, res: Response) => {
+    try {
+        const { name, email, password } = req.body;
+        const newUser = await prisma.cadastro.create({
+            data: {
+                name,
+                email,
+                password,
+            },
+        });
+        return res.json(newUser);
+    } catch (err) {
+        console.error("Error creating user:", err);
+        return res.json("Error");
     }
-    console.log('Connected to the database');
 });
 
-app.post('/signup', (req: Request, res: Response) => {
-    const sql = "INSERT INTO cadastro (`name`, `email`, `password`) VALUES (?)";
-    const values = [
-        req.body.name,
-        req.body.email,
-        req.body.password
-    ];
-
-    db.query(sql, [values], (err, data) => {
-        if (err) {
-            return res.json("Error");
-        }
-        return res.json(data);
-    });
-});
-
-app.post('/login', (req: Request, res: Response) => {
-    const sql = "SELECT * FROM cadastro WHERE `email` = ? AND `password` = ?";
-    db.query(sql, [req.body.email, req.body.password], (err, data) => {
-        if (err) {
-            return res.json("Error");
-        }
-        if (data.length > 0) {
+app.post("/login", async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+        const user = await prisma.cadastro.findUnique({
+            where: {
+                email,
+                password,
+            },
+        });
+        if (user) {
             return res.json("Success");
         } else {
             return res.json("Fail");
         }
-    });
+    } catch (err) {
+        console.error("Error finding user:", err);
+        return res.json("Error");
+    }
 });
 
 app.listen(8081, () => {
